@@ -37,7 +37,7 @@ class RufusClone(QMainWindow):
     def __init__(self, usb_devices=None):
         super().__init__()
         self.usb_devices = usb_devices or {}
-        self.setWindowTitle("Rufus 3.20.1929")
+        self.setWindowTitle("Rufus")
         self.setFixedSize(640, 780) 
         
         self.setStyleSheet("""
