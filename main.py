@@ -125,8 +125,7 @@ def GetUSBInfo(usb_path) -> dict:
         # Check if USB size is greater than 32GB
         usb_size = 0
         total_size = subprocess.check_output(["lsblk", "-d", "-n", "-o", "SIZE", device_node], text=True, timeout=5).strip()
-        # Convert size string (e.g., "64G") to bytes
-        size_value = float(total_size[:-1])  # Remove last character (unit)
+        size_value = float(total_size[:-1])
         size_unit = total_size[-1]
         
         units = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
@@ -156,12 +155,7 @@ def GetUSBInfo(usb_path) -> dict:
     except Exception as err:
         print(f"Unexpected error getting USB info: {err}")
         return {}
-# Example usage of CheckFileSignature (uncomment to test with an actual ISO file) (works)   
-# if CheckFileSignature("/home/kero/Downloads/linuxmint-22.3-cinnamon-64bit.iso"):
-#     print("File signature check passed.")
 
-# Example usage of FlashUSB (uncomment to test with actual paths) (works)
-GetUSBInfo("/run/media/kero/Ventoy")
 
 def launch_gui_with_usb_data() -> None:
     usb_devices = find_usb()
