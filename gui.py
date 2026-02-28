@@ -21,13 +21,13 @@ class LogWindow(QDialog):
         self.log_text.setStyleSheet("background-color: white; border: 1px solid #ccc;")
         layout.addWidget(self.log_text)
         
-        self.log_text.append("Rufus 3.20.1929 (Portable)")
-        self.log_text.append("Windows version: 10.0 (Build 19045)")
+        self.log_text.append("Rufus")
+        self.log_text.append("Distro Name: ")
         self.log_text.append("Syslinux versions: 6.04-pre1 (installed), 6.04-pre1 (embedded)")
         self.log_text.append("Grub versions: 2.06 (embedded)")
         self.log_text.append("E2fsprogs version: 1.47.0 (embedded)")
         self.log_text.append("Vulkan Renderer: None")
-        self.log_text.append("Locale: en_US.UTF-8")
+        self.log_text.append("Locale: ")
         self.log_text.append("------------------------------------------------")
         self.log_text.append("Ready.")
         
@@ -64,6 +64,7 @@ class Rufus(QMainWindow):
                 padding: 4px 6px;
                 background-color: white;
                 min-height: 24px;
+                max-height: 24px;
                 font-size: 9pt;
                 selection-background-color: #0078D7;
             }
@@ -79,7 +80,10 @@ class Rufus(QMainWindow):
                 border: 1px solid #A0A0A0;
                 border-radius: 2px;
                 padding: 4px 15px;
-                min-width: 75px;
+                min-height: 20px;
+                max-height: 20px;
+                min-width: 100px;
+                max-width: 100px;
                 font-size: 9pt;
             }
             QPushButton:hover {
@@ -95,25 +99,27 @@ class Rufus(QMainWindow):
                 border-color: #D0D0D0;
             }
             #btnStart {
-                background-color: #00CC00;
-                color: white;
-                font-weight: bold;
-                font-size: 10pt;
-                border: 1px solid #009900;
-                min-height: 32px;
-                padding: 5px 20px;
+                background-color: #E1E1E1;
+                border: 1px solid #A0A0A0;
+                border-radius: 2px;
+                min-height: 20px;
+                max-height: 20px;
+                min-width: 100px;
+                max-width: 100px;
+                padding: 4px 15px;
+                font-size: 9pt;
             }
             #btnStart:hover {
-                background-color: #00DD00;
-                border-color: #00AA00;
+                background-color: #E5F1FB;
+                border-color: #0078D7;
             }
             #btnStart:pressed {
                 background-color: #00AA00;
             }
             #btnStart:disabled {
-                background-color: #CCCCCC;
-                color: #666666;
-                border: 1px solid #999999;
+                color: #888888;
+                background-color: #F0F0F0;
+                border-color: #D0D0D0;
             }
             QCheckBox {
                 spacing: 5px;
@@ -157,7 +163,6 @@ class Rufus(QMainWindow):
                 font-size: 9pt;
                 color: #000000;
             }
-            /* Link style for advanced options */
             QLabel#linkLabel {
                 color: #000000;
                 text-decoration: none;
@@ -220,7 +225,7 @@ class Rufus(QMainWindow):
         self.combo_boot = QComboBox()
         self.combo_boot.setEditable(True)
         self.combo_boot.lineEdit().setReadOnly(True)
-        self.combo_boot.addItem("Win11_22H2_EnglishInternational_x64.iso")
+        self.combo_boot.addItem("installationmedia.iso")
         
         lbl_check = QLabel("✓") 
         lbl_check.setStyleSheet("font-size: 14pt; color: #666; padding: 0 5px;")
@@ -244,6 +249,8 @@ class Rufus(QMainWindow):
         self.combo_image_option = QComboBox()
         self.combo_image_option.addItem("Standard Windows installation")
         self.combo_image_option.addItem("Windows To Go")
+        self.combo_image_option.addItem("Windows To Go")
+        self.combo_image_option.addItem("Standard Linux")
         
         image_layout = QVBoxLayout()
         image_layout.setSpacing(2)
@@ -287,7 +294,7 @@ class Rufus(QMainWindow):
 
         lbl_vol = QLabel("Volume label")
         lbl_vol.setStyleSheet("font-weight: normal; font-size: 9pt; padding-bottom: 2px;")
-        self.input_label = QLineEdit("CCCOMA_X64FRE_EN-GB_DV9")
+        self.input_label = QLineEdit("Volume label")
         
         vol_layout = QVBoxLayout()
         vol_layout.setSpacing(2)
@@ -306,6 +313,7 @@ class Rufus(QMainWindow):
         self.combo_fs.addItem("NTFS")
         self.combo_fs.addItem("FAT32")
         self.combo_fs.addItem("exFAT")
+        self.combo_fs.addItem("ext4")
         
         lbl_cluster = QLabel("Cluster size")
         lbl_cluster.setStyleSheet("font-weight: normal; font-size: 9pt;")
@@ -354,7 +362,7 @@ class Rufus(QMainWindow):
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(86)
-        self.progress_bar.setFormat("Copying ISO files: 86.0%")
+        self.progress_bar.setFormat("")
         main_layout.addWidget(self.progress_bar)
 
         bottom_controls = QHBoxLayout()
@@ -389,13 +397,10 @@ class Rufus(QMainWindow):
         
         self.btn_start = QPushButton("START")
         self.btn_start.setObjectName("btnStart")
-        self.btn_start.setEnabled(False)
-        self.btn_start.setFixedWidth(100)
-        self.btn_start.clicked.connect(self.start_process)
-        
+        self.btn_start.setFixedSize(100, 50)
+
         self.btn_cancel = QPushButton("CANCEL")
-        self.btn_cancel.setFixedWidth(100)
-        self.btn_cancel.clicked.connect(self.cancel_process)
+        self.btn_cancel.setFixedSize(100, 50)
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -413,7 +418,7 @@ class Rufus(QMainWindow):
         
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("F:\\sources\\install.wim (4.4 GB)                       00:00:46", 0)
+        self.statusBar.showMessage("", 0)
 
     def browse_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Disk Image", "", "ISO Images (*.iso);;All Files (*)")
