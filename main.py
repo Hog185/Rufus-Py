@@ -180,7 +180,17 @@ def launch_gui_with_usb_data() -> None:
     usb_json = json.dumps(usb_devices)
     encoded_data = urllib.parse.quote(usb_json)
 
-    subprocess.run([sys.executable, "gui.py", encoded_data], check=False)
+    try:
+        subprocess.run([sys.executable, "gui.py", encoded_data], check=True)
+    except FileNotFoundError as e:
+        print(f"Failed to launch GUI: executable or script not found: {e}")
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"GUI exited with an error (return code {e.returncode}): {e}")
+        sys.exit(e.returncode or 1)
+    except Exception as e:
+        print(f"Unexpected error while launching GUI: {e}")
+        sys.exit(1)
 
 
 
