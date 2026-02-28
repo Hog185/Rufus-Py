@@ -85,8 +85,21 @@ def CheckFileSignature(file_path) -> bool:
         return False
 
 def FlashUSB(iso_path, usb_path) -> bool:
-    ddcommand = f"dd if={shlex.quote(iso_path)} of={shlex.quote(usb_path)} bs=4M status=progress conv=fdatasync"
-    print(f"Flashing USB with command: {ddcommand}")
+    cmd = [
+        "dd",
+        f"if={iso_path}",
+        f"of={usb_path}",
+        "bs=4M",
+        "status=progress",
+        "conv=fdatasync",
+    ]
+    print(f"Flashing USB with command: {' '.join(cmd)}")
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except subprocess.CalledProcessError as err:
+        print(f"Error flashing USB: {err}")
+        return False
 
     try:
         if CheckFileSignature(iso_path):
