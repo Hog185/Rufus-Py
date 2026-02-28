@@ -54,7 +54,7 @@ def find_usb():
     
     return usbdict
 
-# Actual functionlaity
+# Actual functionality
 def CheckFileSignature(file_path) -> bool:
     # Check if the file:
     # - exists
