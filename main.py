@@ -136,16 +136,19 @@ def GetUSBInfo(usb_path) -> dict:
             return {}
 
         # Check if USB size is greater than 32GB
-        usb_size = 0
-        total_size = subprocess.check_output(["lsblk", "-d", "-n", "-o", "SIZE", device_node], text=True, timeout=5).strip()
-        size_value = float(total_size[:-1])
-        size_unit = total_size[-1]
-        
-        units = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
-        usb_size = size_value * units.get(size_unit, 1)
-        
+        # Use lsblk -b to get the size in bytes directly to avoid parsing human-readable units
+        total_size_bytes = subprocess.check_output(
+            ["lsblk", "-b", "-d", "-n", "-o", "SIZE", device_node],
+            text=True,
+            timeout=5,
+        ).strip()
+        usb_size = int(total_size_bytes)
+
         if usb_size > 32 * 1024**3:  # 32GB in bytes
-            print(f"USB device is large, does user want to actually flash this?: {total_size} (passed 32 GB threshold)")
+            print(
+                f"USB device is large, does user want to actually flash this?: "
+                f"{usb_size} bytes (passed 32 GB threshold)"
+            )
         
         # Get the label of the USB device
         label = subprocess.check_output(["lsblk", "-d", "-n", "-o", "LABEL", device_node], text=True, timeout=5).strip()
