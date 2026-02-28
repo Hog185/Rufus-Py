@@ -103,7 +103,7 @@ def FlashUSB(iso_path, usb_path) -> bool:
 
     try:
         if CheckFileSignature(iso_path):
-            subprocess.run(ddcommand, shell=True, check=True)
+            subprocess.run(ddcommand, shell=False, check=True)
             print(f"Successfully flashed {iso_path} to {usb_path}")
             return True
         else:
