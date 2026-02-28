@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 
+from main import CheckFileSignature
+
 class LogWindow(QDialog):
     def __init__(self):
         super().__init__()
@@ -220,7 +222,9 @@ class Rufus(QMainWindow):
         self.combo_boot = QComboBox()
         self.combo_boot.setEditable(True)
         self.combo_boot.lineEdit().setReadOnly(True)
-        self.combo_boot.addItem("Win11_22H2_EnglishInternational_x64.iso")
+        # Populate boot selection with placeholder text
+        # should not be filled with an actual .iso name until user selects a file
+        self.combo_boot.addItem("No image selected")
         
         lbl_check = QLabel("✓") 
         lbl_check.setStyleSheet("font-size: 14pt; color: #666; padding: 0 5px;")
@@ -422,6 +426,7 @@ class Rufus(QMainWindow):
             self.combo_boot.setItemText(0, clean_name)
             self.input_label.setText(clean_name.split('.')[0].upper())
             self.log_message(f"Selected image: {file_name}")
+            self.btn_start.setEnabled(CheckFileSignature(file_name))
 
     def show_log(self):
         self.log_window = LogWindow()
