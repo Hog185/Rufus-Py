@@ -214,9 +214,33 @@ def launch_gui_with_usb_data() -> None:
         print(f"Unexpected error while launching GUI: {e}")
         sys.exit(1)
 
-
-
-
+#disk formatting
+def dskformat(usb_mount_path):
+    path = usb_mount_path
+    type = None    #we must fetch the file type chosen by the person from the gui and use it here...
+    # 0 -> NTFS 
+    # 1 -> FAT32 
+    # 2 -> exFAT
+    #THIS WILL ASK FOR PASSWORD NEED TO FETCH PASSWORD so we are using pkexec from polkit to prompt the user for a password. need to figure out a way to use another method or implement this everywhere.
+    # instead of FileNotFoundError we can also use shutil(?)
+    if type==0:
+        try:
+            subprocess.run["pkexec", "mkfs.ntfs", "-Q", {path}]
+            print("success format to ntfs!")
+        except FileNotFoundError:
+            print("Error: The command pkexec was not found on your system.")
+    elif type==1:
+        try:
+            subprocess.run["pkexec", "mkfs.vfat", "-F", "32", {path}]
+            print("success format to fat32!")
+        except FileNotFoundError:
+            print("Error: The command pkexec was not found on your system.")
+    elif type==2:
+        try:
+            subprocess.run["pkexec", "mkfs.exfat", {path}]
+            print("success format to exFAT!")
+        except FileNotFoundError:
+            print("Error: The command pkexec was not found on your system.")
 
 if __name__ == "__main__":
     launch_gui_with_usb_data()

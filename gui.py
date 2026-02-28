@@ -201,7 +201,7 @@ class Rufus(QMainWindow):
         # Populate combo box with detected USB devices
         if self.usb_devices:
             for path, label in self.usb_devices.items():
-                self.combo_device.addItem(f"{label} ({path})")
+                self.combo_device.addItem(f"{label} ({path})")  #need to get the label and path from main.py
         else:
             self.combo_device.addItem("No USB devices found")
         
@@ -306,7 +306,9 @@ class Rufus(QMainWindow):
         self.combo_fs.addItem("NTFS")
         self.combo_fs.addItem("FAT32")
         self.combo_fs.addItem("exFAT")
-        
+        #for getting the current state of combobox?
+        # self.combo_fs.currentIndex())
+
         lbl_cluster = QLabel("Cluster size")
         lbl_cluster.setStyleSheet("font-weight: normal; font-size: 9pt;")
         self.combo_cluster = QComboBox()
