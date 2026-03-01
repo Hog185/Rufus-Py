@@ -500,5 +500,3 @@ if __name__ == "__main__":
     window = Rufus(usb_devices)
     window.show()
     sys.exit(app.exec())
-
-
