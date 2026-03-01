@@ -288,7 +288,51 @@ def dskformat(usb_mount_path):
         except Exception:
             unexpected()
 
-    
+    def __x0(m):
+    return os.path.normpath(m)
+
+def __x1(m):
+    return next((
+        "/dev/" + os.path.basename(p.device).rstrip("0123456789")
+        for p in psutil.disk_partitions()
+        if __x0(p.mountpoint) == __x0(m)
+    ), None)
+
+def __x2(d):
+    try:
+        return open(f"/sys/block/{os.path.basename(d).rstrip('0123456789')}/removable").read().strip() == "1"
+    except:
+        return False
+
+def __x3(d):
+    try:
+        subprocess.run(["pkexec","umount",d],check=True)
+        return True
+    except:
+        return False
+
+def dskformat(p):
+    r = __x1(p)
+    if not r or not __x2(r) or not __x3(r):
+        print("nope")
+        return False
+
+    t = getattr(states,"currentFS",None)
+
+    f = {
+        0: lambda: ["pkexec","mkfs.ntfs","-Q","-L","USB",r],
+        1: lambda: ["pkexec","mkfs.vfat","-F","32","-n","USB",r],
+        2: lambda: ["pkexec","mkfs.exfat","-n","USB",r],
+        3: lambda: ["pkexec","mkfs.ext4","-L","USB",r],
+    }
+
+    try:
+        subprocess.run((f.get(t) or (lambda: []) )(),check=True)
+        print("ok")
+        return True
+    except:
+        print("rip")
+        return False
 
 if __name__ == "__main__":
     launch_gui_with_usb_data()
