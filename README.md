@@ -1,7 +1,7 @@
 Rufus-Py
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-[![Discord](https://img.shields.io/discord/1477694881127469202?label=Join Discord&logo=discord&color=5865F2)](discord.gg/TMnXwezsyV)
+[![Discord](https://img.shields.io/discord/1477694881127469202?label=Join Discord&logo=discord&color=5865F2)](https:\\discord.gg/TMnXwezsyV)
 
 ⚠️ WORK IN PROGRESS
 
