@@ -5,6 +5,7 @@ import getpass
 import json
 import sys
 import urllib.parse
+import states
 
 ##### FUNCTIONS #####
 ###USB RECOGNITION###
@@ -214,33 +215,80 @@ def launch_gui_with_usb_data() -> None:
         print(f"Unexpected error while launching GUI: {e}")
         sys.exit(1)
 
-#disk formatting
+### DISK FORMATTING ###
+def volumecustomlabel():
+    pass
+
+def cluster():
+    pass
+
+def quickformat():
+    pass
+
+def createextended():
+    pass
+
+def checkdevicebadblock():
+    pass
+
 def dskformat(usb_mount_path):
     path = usb_mount_path
-    type = None    #we must fetch the file type chosen by the person from the gui and use it here...
+    type = states.currentFS
+    #These can later be turned to a notification or error box using pyqt
+    def pkexecNotFound():
+        print("Error: The command pkexec was not found on your system.")
+    def FormatFail():
+        print("Error: Formatting failed. Was the password correct? Is the drive unmounted?")
+    def unexpected():
+        print(f"An unexpected error occurred")
     # 0 -> NTFS 
     # 1 -> FAT32 
     # 2 -> exFAT
+    # 3 -> ext4
     #THIS WILL ASK FOR PASSWORD NEED TO FETCH PASSWORD so we are using pkexec from polkit to prompt the user for a password. need to figure out a way to use another method or implement this everywhere.
     # instead of FileNotFoundError we can also use shutil(?)
     if type==0:
         try:
-            subprocess.run["pkexec", "mkfs.ntfs", "-Q", {path}]
+            subprocess.run(["pkexec", "mkfs.ntfs", "-Q", path])
             print("success format to ntfs!")
         except FileNotFoundError:
-            print("Error: The command pkexec was not found on your system.")
+            pkexecNotFound()
+        except subprocess.CalledProcessError:
+            FormatFail()
+        except Exception:
+            unexpected()
     elif type==1:
         try:
-            subprocess.run["pkexec", "mkfs.vfat", "-F", "32", {path}]
+            subprocess.run(["pkexec", "mkfs.vfat", "-F", "32", path])
             print("success format to fat32!")
         except FileNotFoundError:
-            print("Error: The command pkexec was not found on your system.")
+            pkexecNotFound()
+        except subprocess.CalledProcessError:
+            FormatFail()
+        except Exception:
+            unexpected()
     elif type==2:
         try:
-            subprocess.run["pkexec", "mkfs.exfat", {path}]
+            subprocess.run(["pkexec", "mkfs.exfat", path])
             print("success format to exFAT!")
         except FileNotFoundError:
-            print("Error: The command pkexec was not found on your system.")
+            pkexecNotFound()
+        except subprocess.CalledProcessError:
+            FormatFail()
+        except Exception:
+            unexpected()
+    elif type==3:
+        try:
+            subprocess.run(["pkexec", "mkfs.ext4", {path}])
+            print("success format to ext4!")
+        except FileNotFoundError:
+            pkexecNotFound()
+        except subprocess.CalledProcessError:
+            FormatFail()
+        except Exception:
+            unexpected()
+
+    
 
 if __name__ == "__main__":
     launch_gui_with_usb_data()

@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QLineEdit, QFrame, QStatusBar, QToolButton, QSpacerItem)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
+import states
 
 class LogWindow(QDialog):
     def __init__(self):
@@ -205,8 +206,9 @@ class Rufus(QMainWindow):
         
         # Populate combo box with detected USB devices
         if self.usb_devices:
+            
             for path, label in self.usb_devices.items():
-                self.combo_device.addItem(f"{label} ({path})")  #need to get the label and path from main.py
+                self.combo_device.addItem(f"{label} ({path})")
         else:
             self.combo_device.addItem("No USB devices found")
         
@@ -314,6 +316,7 @@ class Rufus(QMainWindow):
         self.combo_fs.addItem("FAT32")
         self.combo_fs.addItem("exFAT")
         self.combo_fs.addItem("ext4")
+        self.combo_fs.currentTextChanged.connect(self.updateFS)
         
         lbl_cluster = QLabel("Cluster size")
         lbl_cluster.setStyleSheet("font-weight: normal; font-size: 9pt;")
@@ -419,6 +422,10 @@ class Rufus(QMainWindow):
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
         self.statusBar.showMessage("", 0)
+
+    def updateFS(self):
+        states.currentFS = self.combo_fs.currentIndex()
+        # print(f"Global state updated to: {states.currentFS}")
 
     def browse_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Disk Image", "", "ISO Images (*.iso);;All Files (*)")
