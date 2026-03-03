@@ -1,0 +1,16 @@
+[project]
+name = "rufus-py"
+version = "0.1.0"
+description = "Physical drive imaging and formatting utility written in Python"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICEN[CS]E.*"]
+requires-python = ">=3.13"
+dependencies = [
+    "psutil>=7.2.2",
+    "pyqt6>=6.10.2",
+]
+
+[project.gui-scripts]
+rufus_py = "rufus_py.__main__:main"
+
