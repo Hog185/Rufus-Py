@@ -11,7 +11,6 @@ uv is used for this project. Check out PR: https://github.com/Hog185/Rufus-Py/pu
 ## To-Do
 ### Immediate Attention:
 - Fix cluster function command and error handling to avoid crash when executed [backend]
-- Complete creating the left out formatting functions in formatting.py [backend]
 - Troubleshoot all the commands being used using subprocess and pkexec [backend]
 - Connect all the existing format functions to the respective gui components [backend + frontend]
 ## Further attention:
