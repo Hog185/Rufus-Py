@@ -3,117 +3,17 @@ import json
 import urllib.parse
 import webbrowser
 from pathlib import Path
-from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, 
-    QHBoxLayout, QGridLayout, QLabel, QComboBox, 
-    QPushButton, QProgressBar, QCheckBox, 
-    QMessageBox, QDialog, QTextEdit, QFileDialog, 
-    QLineEdit, QFrame, QStatusBar, QToolButton,
-    QStyle, QStyleOptionButton 
-)
-from PyQt6.QtCore import Qt, QTimer, QSize, QPointF  
-from PyQt6.QtGui import QFont, QPaintEvent, QPainter, QPen, QPolygonF 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QGridLayout, QLabel, QComboBox, 
+                             QPushButton, QProgressBar, QCheckBox, 
+                             QMessageBox, QDialog, QTextEdit, QFileDialog, 
+                             QLineEdit, QFrame, QStatusBar, QToolButton, QSpacerItem)
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QFont
 
-# gets imports from /drives
-if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from rufus_py.drives import states
+from rufus_py.drives import formatting as fo
 
-from src.drives import states
-from src.drives import formatting
-
-class CollapsibleSection(QWidget):
-    def __init__(self, title, parent=None):
-        super().__init__(parent)
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
-        
-#title
-        self.header = CollapsibleHeader(title)
-        self.header.toggled.connect(self.on_toggled)
-        
-        self.content = QWidget()
-        self.content_layout = QVBoxLayout(self.content)
-        self.content_layout.setContentsMargins(0, 5, 0, 10)
-        
-        # line under header
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #000000; min-height: 1px; max-height: 1px;")
-        
-        # Add widgets to layout
-        self.layout.addWidget(self.header)
-        self.layout.addWidget(line)
-        self.layout.addWidget(self.content)
-        
-    def on_toggled(self, collapsed):
-        self.content.setVisible(collapsed)
-
-class CollapsibleHeader(QPushButton):
-    def __init__(self, title, parent=None):
-        super().__init__(title, parent)
-        self.setCheckable(True)
-        self.setChecked(True)
-        self.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                font-size: 16pt;
-                font-weight: normal;
-                padding: 5px 0 5px 500px; 
-                border: none;
-                background-color: transparent;
-                color: #000000;
-            }
-            QPushButton:hover {
-                color: #0078D7;
-            }
-        """)
-        self.setFlat(True)
-        self.setContentsMargins(30, 0, 0, 0)  #
-        
-    def paintEvent(self, event: QPaintEvent) -> None:
-        painter = QPainter(self)
-        option = QStyleOptionButton()
-        self.initStyleOption(option)
-        
-       
-        arrow_size = 12
-        margin = 10
-        arrow_x = margin
-        arrow_y = (self.height() - arrow_size) // 2
-        
-        painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        if self.isChecked():
-            # Draw down arrow (▼)
-            points = QPolygonF([
-                QPointF(arrow_x, arrow_y),
-                QPointF(arrow_x + arrow_size, arrow_y),
-                QPointF(arrow_x + arrow_size//2, arrow_y + arrow_size)
-            ])
-        else:
-            # Draw right arrow (▶)
-            points = QPolygonF([
-                QPointF(arrow_x, arrow_y),
-                QPointF(arrow_x + arrow_size, arrow_y + arrow_size//2),
-                QPointF(arrow_x, arrow_y + arrow_size)
-            ])
-            
-        painter.setBrush(Qt.GlobalColor.black)
-        painter.drawPolygon(points)
-        painter.restore()
-        
-        # Draw the text with proper indentation
-        text_rect = self.rect().adjusted(arrow_x + arrow_size + 10, 0, 0, 0)
-        painter.drawText(text_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self.text())
-        
-    def sizeHint(self) -> QSize:
-        hint = super().sizeHint()
-        fm = self.fontMetrics()
-        text_width = fm.horizontalAdvance(self.text())
-        return QSize(text_width + 50, max(hint.height(), 30))
 
 class LogWindow(QDialog):
     def __init__(self):
@@ -138,7 +38,6 @@ class AboutWindow(QDialog):
         self.about_text.setReadOnly(True)
         self.about_text.setFont(QFont("Consolas", 9))
         self.about_text.setStyleSheet("background-color: white; border: 1px solid #ccc;")
-        self.about_text.setText("Rufus-Py is a disk image writer written in Python for Linux")
         layout.addWidget(self.about_text)
         self.setLayout(layout)
 
@@ -285,6 +184,20 @@ class Rufus(QMainWindow):
 
         self.init_ui()
 
+    def create_header(self, text):
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 10, 0, 5)
+        label = QLabel(text)
+        label.setObjectName("sectionHeader")
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        line.setStyleSheet("background-color: #000000; min-height: 1px; max-height: 1px;")
+        
+        layout.addWidget(label)
+        layout.addWidget(line, 1)
+        return layout
+
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -292,15 +205,15 @@ class Rufus(QMainWindow):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(15, 10, 15, 10)
 
-        # Drive Properties Section
-        drive_properties_section = CollapsibleSection("Drive Properties")
-        
+        main_layout.addLayout(self.create_header("Drive Properties"))
+
         lbl_device = QLabel("Device")
         lbl_device.setStyleSheet("font-weight: normal; font-size: 9pt; padding-bottom: 2px;")
         self.combo_device = QComboBox()
         
         # Populate combo box with detected USB devices
         if self.usb_devices:
+            
             for path, label in self.usb_devices.items():
                 self.combo_device.addItem(f"{label} ({path})")
         else:
@@ -310,7 +223,8 @@ class Rufus(QMainWindow):
         device_layout.setSpacing(2)
         device_layout.addWidget(lbl_device)
         device_layout.addWidget(self.combo_device)
-        
+        main_layout.addLayout(device_layout)
+
         lbl_boot = QLabel("Boot selection")
         lbl_boot.setStyleSheet("font-weight: normal; font-size: 9pt; padding-bottom: 2px;")
         
@@ -327,6 +241,7 @@ class Rufus(QMainWindow):
         
         btn_select = QPushButton("SELECT")
         btn_select.clicked.connect(self.browse_file)
+
         
         boot_row.addWidget(self.combo_boot, 1)
         boot_row.addWidget(lbl_check)
@@ -336,11 +251,13 @@ class Rufus(QMainWindow):
         boot_layout.setSpacing(2)
         boot_layout.addWidget(lbl_boot)
         boot_layout.addLayout(boot_row)
-        
+        main_layout.addLayout(boot_layout)
+
         lbl_image = QLabel("Image option")
         lbl_image.setStyleSheet("font-weight: normal; font-size: 9pt; padding-bottom: 2px;")
         self.combo_image_option = QComboBox()
         self.combo_image_option.addItem("Standard Windows installation")
+        self.combo_image_option.addItem("Windows To Go")
         self.combo_image_option.addItem("Windows To Go")
         self.combo_image_option.addItem("Standard Linux")
         self.combo_image_option.currentTextChanged.connect(self.update_image_option)
@@ -349,7 +266,8 @@ class Rufus(QMainWindow):
         image_layout.setSpacing(2)
         image_layout.addWidget(lbl_image)
         image_layout.addWidget(self.combo_image_option)
-        
+        main_layout.addLayout(image_layout)
+
         grid_part = QGridLayout()
         grid_part.setSpacing(10)
         grid_part.setColumnStretch(1, 1)
@@ -374,15 +292,18 @@ class Rufus(QMainWindow):
         grid_part.addWidget(lbl_target, 0, 2)
         grid_part.addWidget(self.combo_target, 1, 2)
         
-        drive_properties_section.content_layout.addLayout(device_layout)
-        drive_properties_section.content_layout.addLayout(boot_layout)
-        drive_properties_section.content_layout.addLayout(image_layout)
-        drive_properties_section.content_layout.addLayout(grid_part)
-        drive_properties_section.content_layout.addSpacing(5)
-        main_layout.addWidget(drive_properties_section)
+        main_layout.addLayout(grid_part)
         
-        format_options_section = CollapsibleSection("Format Options")
+        main_layout.addSpacing(5)
+
+        lbl_adv_drive = QLabel("▼ Show advanced drive properties")
+        lbl_adv_drive.setObjectName("linkLabel")
+        main_layout.addWidget(lbl_adv_drive)
         
+        main_layout.addSpacing(15)
+
+        main_layout.addLayout(self.create_header("Format Options"))
+
         lbl_vol = QLabel("Volume label")
         lbl_vol.setStyleSheet("font-weight: normal; font-size: 9pt; padding-bottom: 2px;")
         self.input_label = QLineEdit("Volume label")
@@ -392,7 +313,8 @@ class Rufus(QMainWindow):
         vol_layout.setSpacing(2)
         vol_layout.addWidget(lbl_vol)
         vol_layout.addWidget(self.input_label)
-        
+        main_layout.addLayout(vol_layout)
+
         grid_fmt = QGridLayout()
         grid_fmt.setSpacing(10)
         grid_fmt.setColumnStretch(1, 1)
@@ -418,6 +340,12 @@ class Rufus(QMainWindow):
         grid_fmt.addWidget(lbl_cluster, 0, 2)
         grid_fmt.addWidget(self.combo_cluster, 1, 2)
         
+        main_layout.addLayout(grid_fmt)
+
+        lbl_adv_fmt = QLabel("▲ Hide advanced format options")
+        lbl_adv_fmt.setObjectName("linkLabel")
+        main_layout.addWidget(lbl_adv_fmt)
+
         self.chk_quick = QCheckBox("Quick format")
         self.chk_quick.setChecked(True)
         self.chk_quick.stateChanged.connect(self.update_QF)
@@ -444,23 +372,11 @@ class Rufus(QMainWindow):
         chk_layout.addWidget(self.chk_extended)
         chk_layout.addLayout(bad_blocks_row)
         
-        format_options_section.content_layout.addLayout(vol_layout)
-        format_options_section.content_layout.addLayout(grid_fmt)
-        format_options_section.content_layout.addLayout(chk_layout)
-        main_layout.addWidget(format_options_section)
+        main_layout.addLayout(chk_layout)
         
-        status_header = QLabel("Status")
-        status_header.setObjectName("sectionHeader")
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("background-color: #000000; min-height: 1px; max-height: 1px;")
-        
-        status_layout = QVBoxLayout()
-        status_layout.setContentsMargins(0, 10, 0, 5)
-        status_layout.addWidget(status_header)
-        status_layout.addWidget(line)
-        main_layout.addLayout(status_layout)
+        main_layout.addSpacing(15)
+
+        main_layout.addLayout(self.create_header("Status"))
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
@@ -507,8 +423,6 @@ class Rufus(QMainWindow):
 
         self.btn_cancel = QPushButton("CANCEL")
         self.btn_cancel.setFixedSize(100, 50)
-        self.btn_cancel.clicked.connect(self.cancel_process)
-        self.btn_cancel.setEnabled(False)
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -526,43 +440,55 @@ class Rufus(QMainWindow):
         
         self.statusBar = QStatusBar()
         self.setStatusBar(self.statusBar)
-        self.statusBar.showMessage("Ready", 0)
+        self.statusBar.showMessage("", 0)
 
     def updateFS(self):
         states.currentFS = self.combo_fs.currentIndex()
+        # print(f"Global state updated to: {states.currentFS}")
     
     def update_image_option(self):
         states.image_option = self.combo_image_option.currentIndex()
+        # print(f"Global state updated to: {states.image_option}")
     
     def update_partition_scheme(self):
         states.partition_scheme = self.combo_partition.currentIndex()
+        # print(f"Global state updated to: {states.partition_scheme}")
 
     def update_target_system(self):
         states.target_system = self.combo_target.currentIndex()
+        # print(f"Global state updated to: {states.target_system}")
     
     def update_new_label(self, current_text):
         states.new_label = current_text
+        # print(f"Stored in state: {states.new_label}")
     
     def update_cluster_size(self):
         states.cluster_size = self.combo_cluster.currentIndex()
+        print(f"Global state updated to: {states.cluster_size}")
 
     def update_QF(self):
         if self.chk_quick.isChecked():
             states.QF = 0
+            # print(states.QF)
         else:
             states.QF = 1
+            # print(states.QF)
 
     def update_create_extended(self):
         if self.chk_extended.isChecked():
             states.create_extended = 0
+            # print(states.create_extended)
         else:
             states.create_extended = 1
+            # print(states.create_extended)
 
     def update_check_bad(self):
         if self.chk_badblocks.isChecked():
             states.check_bad = 0
+            # print(states.check_bad)
         else:
             states.check_bad = 1
+            # print(states.check_bad)
 
     def browse_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Disk Image", "", "ISO Images (*.iso);;All Files (*)")
@@ -584,35 +510,23 @@ class Rufus(QMainWindow):
         if hasattr(self, 'log_window'):
             self.log_window.log_text.append(f"[INFO] {msg}")
 
+    def about_message(self, msg):
+        if hasattr(self, 'about_window'):
+            self.log_window.about_text.append(f"Rufus-Py is a disk image writer written in py for linux")
+
     def ready(self):
         self.btn_start.setEnabled(True)
         self.btn_cancel.setEnabled(False)
         self.progress_bar.setValue(100)
         self.progress_bar.setFormat("READY FOR ACTION")
-
-    def start_process(self):
-        self.btn_start.setEnabled(False)
-        self.btn_cancel.setEnabled(True)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setFormat("Formatting... 0%")
-        self.simulate_write()
-
     def cancel_process(self):
-        reply = QMessageBox.question(self, "Cancel", "Are you sure you want to cancel?", 
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(self, "Cancel", "Are you sure you want to cancel?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
             self.progress_bar.setValue(0)
             self.progress_bar.setFormat("")
             self.btn_start.setEnabled(True)
             self.btn_cancel.setEnabled(False)
             self.statusBar.showMessage("Ready", 0)
-
-    def simulate_write(self):
-        self.timer = QTimer()
-        self.progress = 86
-        self.timer.timeout.connect(self.update_progress)
-        self.timer.start(100)
-
     def update_progress(self):
         self.progress += 1
         if self.progress > 100:
@@ -625,7 +539,32 @@ class Rufus(QMainWindow):
             self.btn_start.setEnabled(True)
             self.btn_cancel.setEnabled(False)
             self.statusBar.showMessage("Ready", 0)
-            self.ready()
+    
+    def start_process(self):
+        self.btn_start.setEnabled(False)
+        self.btn_cancel.setEnabled(True)
+        self.progress_bar.setValue(10)
+        self.progress_bar.setFormat("Starting.. 10%")
+        # unmount
+        fo.unmount()
+        self.progress_bar.setValue(30)
+        self.progress_bar.setFormat("Unmounted Drive.. 20%")
+        # we must either flash iso or format the drive
+        # logic will be implemented later
+        # dd flashing goes here
+
+        # format the drive
+        fo.dskformat()
+        self.progress_bar.setValue(60)
+        self.progress_bar.setFormat("Format Drive.. 60%")
+        # change label
+        fo.volumecustomlabel()
+        self.progress_bar.setValue(80)
+        self.progress_bar.setFormat("Changed Label.. 80%")
+        # re-mount
+        fo.remount()
+        self.progress_bar.setValue(100)
+        self.progress_bar.setFormat("Mount Done.. Completed! 100%")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
