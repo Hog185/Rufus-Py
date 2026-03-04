@@ -1,9 +1,17 @@
-# Rufus-Py
+a# Rufus-Py
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Discord](https://img.shields.io/discord/1477694881127469202?style=flat\&logo=https%3A%2F%2Fcdn.discordapp.com%2Ficons%2F1477694881127469202%2F1b2c4e8defc9220de11098108fa1ed81.webp%3Fsize%3D256\&logoColor=rgb\&label=Join%20Server\&link=https%3A%2F%2Fdiscord.gg%2FTMnXwezsyV)
 ![Status: Beta](https://img.shields.io/badge/status-beta-orange)
 
+
+#Overview
+
+Rufus-Py is a Python-based drive imaging and formatting utility designed for Linux environments.
+
+Inspired by the efficiency and reliability of Rufus, this project aims to deliver a streamlined and technically precise solution for creating bootable media on Linux systems.
+
+Rufus-Py emphasizes clarity, control, and predictable behavior when interacting with physical storage devices.
 ## Beta Release
 
 **Rufus-Py** is currently in **Beta**.
