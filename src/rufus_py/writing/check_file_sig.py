@@ -59,18 +59,6 @@ def _parent_block_device(device_node: str) -> str | None:
         return None
 
 
-def _is_removable_device(device_node: str) -> bool:
-    """Check that a device is removable (e.g. USB stick) before writing to it."""
-    disk_node = _parent_block_device(device_node=device_node) or device_node
-    base_name = os.path.basename(disk_node) # no rstrip() func here; breaks device names like mmcblk0
-    removable_path = Path("/sys/block") / base_name / "removable"
-
-    try:
-        return removable_path.read_text().strip() == "1"
-    except OSError:
-        return False
-
-
 def _resolve_device_node(usb_mount_path: str) -> str | None:
     """Resolve a mount path to its underlying device node for dd."""
     normalized = os.path.normpath(usb_mount_path)
