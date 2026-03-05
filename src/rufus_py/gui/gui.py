@@ -8,12 +8,11 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QPushButton, QProgressBar, QCheckBox, 
                              QMessageBox, QDialog, QTextEdit, QFileDialog, 
                              QLineEdit, QFrame, QStatusBar, QToolButton, QSpacerItem)
-from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont
 
 from rufus_py.drives import states
 from rufus_py.drives import formatting as fo
-from rufus_py.writing.flash_usb import FlashUSB
 
 
 class LogWindow(QDialog):
@@ -41,33 +40,6 @@ class AboutWindow(QDialog):
         self.about_text.setStyleSheet("background-color: white; border: 1px solid #ccc;")
         layout.addWidget(self.about_text)
         self.setLayout(layout)
-
-class FlashWorker(QThread): # thi is so the ui dont freeze when flashing
-    finished = pyqtSignal(bool)
-    progress = pyqtSignal(str)
-    def __init__(self, iso_path: str, mount_path: str):
-        super().__init__()
-        self.iso_path = iso_path
-        self.mount_path = mount_path
-    def run(self):
-        try:
-            self.progress.emit("Unmounting drive...")
-            fo.unmount()
-            #update progress bar
-            self.progress.emit("Flashing ISO to device...")
-            result = FlashUSB(self.iso_path, self.mount_path)
-            #see above
-            if result:
-                self.progress.emit("Flashing complete!")
-            else:
-                self.progress.emit("Flash failed.")
-            #see above
-            self.finished.emit(result)
-            #yay it worked
-        except Exception as e:
-            self.progress.emit(f"Error: {str(e)}")
-            self.finished.emit(False)
-            #change progress bar 2: electric boogaloo
 
 class Rufus(QMainWindow):
     def __init__(self, usb_devices=None):
@@ -262,7 +234,7 @@ class Rufus(QMainWindow):
         self.combo_boot = QComboBox()
         self.combo_boot.setEditable(True)
         self.combo_boot.lineEdit().setReadOnly(True)
-        self.combo_boot.addItem("installationmedia.iso")
+        self.combo_boot.addItem("Please select installation media")
         
         lbl_check = QLabel("✓") 
         lbl_check.setStyleSheet("font-size: 14pt; color: #666; padding: 0 5px;")
@@ -318,6 +290,8 @@ class Rufus(QMainWindow):
         grid_part.addWidget(self.combo_partition, 1, 0)
         grid_part.addWidget(lbl_target, 0, 2)
         grid_part.addWidget(self.combo_target, 1, 2)
+
+        self.combo_image_option.currentTextChanged.connect(self.update_image_option)
         
         main_layout.addLayout(grid_part)
         
@@ -450,7 +424,6 @@ class Rufus(QMainWindow):
 
         self.btn_cancel = QPushButton("CANCEL")
         self.btn_cancel.setFixedSize(100, 50)
-        self.btn_cancel.clicked.connect(self.cancel_process)
         
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -470,20 +443,43 @@ class Rufus(QMainWindow):
         self.setStatusBar(self.statusBar)
         self.statusBar.showMessage("", 0)
 
+        self.update_filesystem_options()
+    
+    def update_filesystem_options(self): #limit filesytem options
+        current_fs = self.combo_fs.currentText
+        self.combo_fs.blockSignals(True)
+        self.combo_fs.clear
+
+        selected_image  = self.combo_image_option.currentText()
+
+        if selected_image == "Standard Linux":
+            self.combo_fs.addItems(["UDF"])
+            self.combo_fs.setCurrentText("UDF")
+            self.combo_cluster.setEnabled(False)
+        else: #Windows
+            self.combo_fs in ["NTFS","FAT32"]
+            self.combo_cluster.setEnabled(True)
+
+        self.combo_fs.blockSignals(False)
+        states.currentFS = self.combo_fs.currentText()
+
+
+
     def updateFS(self):
-        states.currentFS = self.combo_fs.currentIndex()
+        states.currentFS = self.combo_fs.currentText()
         # print(f"Global state updated to: {states.currentFS}")
     
     def update_image_option(self):
         states.image_option = self.combo_image_option.currentIndex()
         # print(f"Global state updated to: {states.image_option}")
+        self.update_filesystem_options()
     
     def update_partition_scheme(self):
-        states.partition_scheme = self.combo_partition.currentIndex()
+        states.partition_scheme = self.combo_partition.currentText()
         # print(f"Global state updated to: {states.partition_scheme}")
 
     def update_target_system(self):
-        states.target_system = self.combo_target.currentIndex()
+        states.target_system = self.combo_target.currentText()
         # print(f"Global state updated to: {states.target_system}")
     
     def update_new_label(self, current_text):
@@ -491,7 +487,7 @@ class Rufus(QMainWindow):
         # print(f"Stored in state: {states.new_label}")
     
     def update_cluster_size(self):
-        states.cluster_size = self.combo_cluster.currentIndex()
+        states.cluster_size = self.combo_cluster.currentText()
         print(f"Global state updated to: {states.cluster_size}")
 
     def update_QF(self):
@@ -521,14 +517,10 @@ class Rufus(QMainWindow):
     def browse_file(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select Disk Image", "", "ISO Images (*.iso);;All Files (*)")
         if file_name:
-            states.iso_path=file_name
-
             clean_name = file_name.split("/")[-1].split("\\")[-1]
             self.combo_boot.setItemText(0, clean_name)
             self.input_label.setText(clean_name.split('.')[0].upper())
-
             self.log_message(f"Selected image: {file_name}")
-            # print(f"iso path:{states.iso_path}")
 
     def show_log(self):
         self.log_window = LogWindow()
@@ -536,8 +528,6 @@ class Rufus(QMainWindow):
 
     def show_about(self):
         self.about_window = AboutWindow()
-        about_content = "filler text, change this later"
-        self.about_window.about_text.setPlainText(about_content)
         self.about_window.show()
 
     def log_message(self, msg):
@@ -546,66 +536,59 @@ class Rufus(QMainWindow):
 
     def about_message(self, msg):
         if hasattr(self, 'about_window'):
-            self.about_window.about_text.append(f"Rufus-Py is a disk image writer written in py for linux")
+            self.log_window.about_text.append(f"Rufus-Py is a disk image writer written in py for linux")
 
     def ready(self):
         self.btn_start.setEnabled(True)
         self.btn_cancel.setEnabled(False)
         self.progress_bar.setValue(100)
         self.progress_bar.setFormat("READY FOR ACTION")
-    
-    def get_selected_mount_path(self) -> str:
-        text = self.combo_device.currentText()
-        if '(' in text and ')' in text:
-            return text.split('(')[1].split(')')[0].strip()
-        return ""
-    
     def cancel_process(self):
         reply = QMessageBox.question(self, "Cancel", "Are you sure you want to cancel?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            if hasattr(self, 'flash_worker') and self.flash_worker.isRunning():
-                self.flash_worker.terminate()
             self.progress_bar.setValue(0)
             self.progress_bar.setFormat("")
             self.btn_start.setEnabled(True)
             self.btn_cancel.setEnabled(False)
             self.statusBar.showMessage("Ready", 0)
-    
-    def on_flash_finished(self, success: bool):
-        #yayyyyyy
-        if success:
-            self.progress_bar.setValue(100)
-            self.progress_bar.setFormat("Complete! 100%")
-            QMessageBox.information(self, "Success", "USB drive flashed successfully!")
-        else:
-            self.progress_bar.setFormat("Failed")
-            QMessageBox.critical(self, "Error", "Failed to flash USB drive.") #uh oh
-        self.btn_start.setEnabled(True)
-        self.btn_cancel.setEnabled(False)
-        self.statusBar.showMessage("Ready", 0)
-
+    def update_progress(self):
+        self.progress += 1
+        if self.progress > 100:
+            self.progress = 0
+        self.progress_bar.setValue(self.progress)
+        self.progress_bar.setFormat(f"Copying ISO files: {self.progress}.0%")
+        
+        if self.progress >= 100:
+            self.timer.stop()
+            self.btn_start.setEnabled(True)
+            self.btn_cancel.setEnabled(False)
+            self.statusBar.showMessage("Ready", 0)
     
     def start_process(self):
-        #error handling woah so cool im such a good programmer, this will surely never fail
-        if not getattr(states, 'iso_path', '') or not Path(states.iso_path).exists():
-            QMessageBox.warning(self, "No Image", "Please select a valid installation file first.")
-            return
-        mount_path = self.get_selected_mount_path()
-        if not mount_path:
-            QMessageBox.warning(self, "No Device", "Please select a USB device first.")
-            return
-        
         self.btn_start.setEnabled(False)
         self.btn_cancel.setEnabled(True)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setFormat("Preparing...")
-        self.statusBar.showMessage("Flashing...", 0)
-        #progress bar:3c
-        self.flash_worker = FlashWorker(states.iso_path, mount_path)
-        self.flash_worker.progress.connect(lambda msg: self.statusBar.showMessage(msg, 0))
-        self.flash_worker.finished.connect(self.on_flash_finished)
-        self.flash_worker.start()
-        
+        self.progress_bar.setValue(10)
+        self.progress_bar.setFormat("Starting.. 10%")
+        # unmount
+        fo.unmount()
+        self.progress_bar.setValue(30)
+        self.progress_bar.setFormat("Unmounted Drive.. 20%")
+        # we must either flash iso or format the drive
+        # logic will be implemented later
+        # dd flashing goes here
+
+        # format the drive
+        fo.dskformat()
+        self.progress_bar.setValue(60)
+        self.progress_bar.setFormat("Format Drive.. 60%")
+        # change label
+        fo.volumecustomlabel()
+        self.progress_bar.setValue(80)
+        self.progress_bar.setFormat("Changed Label.. 80%")
+        # re-mount
+        fo.remount()
+        self.progress_bar.setValue(100)
+        self.progress_bar.setFormat("Mount Done.. Completed! 100%")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
