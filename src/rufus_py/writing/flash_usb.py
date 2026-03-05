@@ -1,6 +1,6 @@
 import os
 import subprocess
-from rufus_py.writing.check_file_sig import _is_removable_device, _resolve_device_node
+from rufus_py.writing.check_file_sig import _resolve_device_node
 from rufus_py.writing.check_file_sig import check_iso_signature
 
 def FlashUSB(iso_path, usb_mount_path) -> bool:
@@ -13,10 +13,6 @@ def FlashUSB(iso_path, usb_mount_path) -> bool:
 
     # Strip the partition number so dd writes to the whole disk
     raw_device = "/dev/" + os.path.basename(device_node).rstrip("0123456789")
-
-    if not _is_removable_device(raw_device):
-        print(f"Aborting: {raw_device} is not a removable device.")
-        return False
 
     dd_args = ["dd", f"if={iso_path}", f"of={raw_device}",
                "bs=4M", "status=progress", "conv=fdatasync"]
