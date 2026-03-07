@@ -8,7 +8,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from rufus_py.writing.check_file_sig import check_iso_signature, check_sha256
+from lufus_py.writing.check_file_sig import check_iso_signature, check_sha256
 
 
 def test_check_sha256_returns_false_when_file_does_not_exist(tmp_path: Path) -> None:
@@ -18,7 +18,7 @@ def test_check_sha256_returns_false_when_file_does_not_exist(tmp_path: Path) -> 
 
 def test_check_sha256_returns_true_for_matching_hash(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    content = b"rufus-py test content"
+    content = b"lufus test content"
     iso_file.write_bytes(content)
 
     expected_hash = hashlib.sha256(content).hexdigest()
@@ -28,7 +28,7 @@ def test_check_sha256_returns_true_for_matching_hash(tmp_path: Path) -> None:
 
 def test_check_sha256_accepts_case_insensitive_expected_hash(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    content = b"rufus-py test content"
+    content = b"lufus test content"
     iso_file.write_bytes(content)
 
     expected_hash_upper = hashlib.sha256(content).hexdigest().upper()
@@ -38,7 +38,7 @@ def test_check_sha256_accepts_case_insensitive_expected_hash(tmp_path: Path) -> 
 
 def test_check_sha256_accepts_expected_hash_with_whitespace(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    content = b"rufus-py test content"
+    content = b"lufus test content"
     iso_file.write_bytes(content)
 
     expected_hash_with_spaces = f"  {hashlib.sha256(content).hexdigest()}\n"
@@ -48,7 +48,7 @@ def test_check_sha256_accepts_expected_hash_with_whitespace(tmp_path: Path) -> N
 
 def test_check_sha256_returns_false_for_mismatched_hash(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    iso_file.write_bytes(b"rufus-py test content")
+    iso_file.write_bytes(b"lufus test content")
 
     wrong_hash = "0" * 64
 
@@ -57,14 +57,14 @@ def test_check_sha256_returns_false_for_mismatched_hash(tmp_path: Path) -> None:
 
 def test_check_sha256_returns_false_for_invalid_hash_length(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    iso_file.write_bytes(b"rufus-py test content")
+    iso_file.write_bytes(b"lufus test content")
 
     assert check_sha256(str(iso_file), "abc123") is False
 
 
 def test_check_sha256_returns_false_for_non_hex_hash(tmp_path: Path) -> None:
     iso_file = tmp_path / "sample.iso"
-    iso_file.write_bytes(b"rufus-py test content")
+    iso_file.write_bytes(b"lufus test content")
 
     assert check_sha256(str(iso_file), "g" * 64) is False
 

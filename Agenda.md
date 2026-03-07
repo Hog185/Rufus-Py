@@ -1,6 +1,6 @@
-# Rufus-Py Development Agenda
+# lufus-Py Development Agenda
 ## DEVELOPMENT ENVIRONMENT 
-uv is used for this project. Check out PR: https://github.com/Hog185/Rufus-Py/pull/37
+uv is used for this project. Check out PR: https://github.com/Hog185/lufus-Py/pull/37
 ## Conventions:
 - Proper PR  or Issue link must be provided where relevant.
 - Errors and Exceptions which halt the usage of the whole program are added to the immediate attention group only.
@@ -33,7 +33,7 @@ At this stage, the program should be ready for first release.
 ## Down the line:
 - Executable packages
 - Add Support for Windows ISO
-- Add Rufus windows iso features possibly
+- Add lufus windows iso features possibly
 - Add Support for Windows ISO
 - Ventoy support
 - Executable packages (RPM, DEB,APPIMAGE)

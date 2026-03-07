@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from rufus_py.drives import find_usb as find_usb_module
+from lufus_py.drives import find_usb as find_usb_module
 
 
 def test_find_usb_returns_mount_to_label_mapping(monkeypatch) -> None:
@@ -40,11 +40,11 @@ def test_find_usb_returns_mount_to_label_mapping(monkeypatch) -> None:
     monkeypatch.setattr(
         find_usb_module.subprocess,
         "check_output",
-        lambda *args, **kwargs: "RUFUS_USB\n",
+        lambda *args, **kwargs: "lufus_USB\n",
     )
 
     result = find_usb_module.find_usb()
-    assert result == {mount_path: "RUFUS_USB"}
+    assert result == {mount_path: "lufus_USB"}
 
 
 def test_find_usb_falls_back_to_dir_name_when_lsblk_fails(monkeypatch) -> None:

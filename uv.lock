@@ -21,6 +21,38 @@ wheels = [
 ]
 
 [[package]]
+name = "lufus"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "psutil" },
+    { name = "pyqt6" },
+    { name = "pyudev" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "psutil", specifier = ">=7.2.2" },
+    { name = "pyqt6", specifier = ">=6.10.2" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "pyudev", specifier = ">=0.24.4" },
+]
+provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -147,27 +179,3 @@ sdist = { url = "https://files.pythonhosted.org/packages/5e/1d/8bdbf651de1002e8b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/51/3dc0cd6498b24dea3cdeaed648568e3ca7454d41334d840b114156d7479f/pyudev-0.24.4-py3-none-any.whl", hash = "sha256:b3b6b01c68e6fc628428cc45ff3fe6c277afbb5d96507f14473ddb4a6b959e00", size = 62784, upload-time = "2025-10-08T17:26:57.664Z" },
 ]
-
-[[package]]
-name = "rufus-py"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "psutil" },
-    { name = "pyqt6" },
-    { name = "pyudev" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "psutil", specifier = ">=7.2.2" },
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
-    { name = "pyudev", specifier = ">=0.24.4" },
-]
-provides-extras = ["dev"]

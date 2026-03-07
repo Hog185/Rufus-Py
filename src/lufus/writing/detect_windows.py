@@ -1,4 +1,5 @@
 import subprocess
+#py7zr doesn't work with cd images but 7z cli tools does
 
 def is_windows_iso(iso_path: str) -> bool:
 

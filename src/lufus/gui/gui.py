@@ -1,5 +1,6 @@
 import sys
 import json
+from glob import glob
 import urllib.parse
 import webbrowser
 from pathlib import Path
@@ -11,17 +12,17 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal, QPoint, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QFont
 
-from rufus_py.drives import states
-from rufus_py.drives import formatting as fo
-from rufus_py.writing.flash_usb import FlashUSB
-from rufus_py.drives.find_usb import find_usb
-from rufus_py.drives.autodetect_usb import UsbMonitor
+from lufus.drives import states
+from lufus.drives import formatting as fo
+from lufus.writing.flash_usb import FlashUSB
+from lufus.drives.find_usb import find_usb
+from lufus.drives.autodetect_usb import UsbMonitor
 
 
 class LogWindow(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Rufus Log")
+        self.setWindowTitle("lufus Log")
         self.resize(650, 450)
         layout = QVBoxLayout()
         self.log_text = QTextEdit()
@@ -129,19 +130,23 @@ class FlashWorker(QThread):
     """Worker thread for flashing ISO to USB without freezing UI"""
     finished = pyqtSignal(bool)
     progress = pyqtSignal(str)
+    progress_value = pyqtSignal(int)
     
-    def __init__(self, iso_path: str, mount_path: str):
+    def __init__(self, iso_path: str, device_node: str):
         super().__init__()
         self.iso_path = iso_path
-        self.mount_path = mount_path
+        self.device_node = device_node
     
     def run(self):
         try:
             self.progress.emit("Unmounting drive...")
-            fo.unmount()
+            self.progress_value.emit(2)
+            for partition in glob(f"{self.device_node}*"):
+                fo.unmount(partition)
             
             self.progress.emit("Flashing ISO to device...")
-            result = FlashUSB(self.iso_path, self.mount_path)
+            self.progress_value.emit(5)
+            result = FlashUSB(self.iso_path, self.device_node, progress_cb=self.progress_value.emit, status_cb=self.progress.emit)
             
             if result:
                 self.progress.emit("Flashing complete!")
@@ -154,7 +159,7 @@ class FlashWorker(QThread):
             self.finished.emit(False)
 
 
-class Rufus(QMainWindow):
+class lufus(QMainWindow):
     def __init__(self, usb_devices=None):
         super().__init__()
         self.monitor = UsbMonitor()
@@ -162,7 +167,7 @@ class Rufus(QMainWindow):
         self.monitor.device_list_updated.connect(self.update_usb_list)
         
         self.usb_devices = usb_devices or {}
-        self.setWindowTitle("Rufus")
+        self.setWindowTitle("lufus")
         self.setFixedSize(640, 690)
         self.flash_worker = None
         self.log_window = None
@@ -429,6 +434,7 @@ class Rufus(QMainWindow):
         self.combo_image_option.addItem("Standard Windows installation")
         #self.combo_image_option.addItem("Windows To Go")
         self.combo_image_option.addItem("Standard Linux")
+        self.combo_image_option.addItem("Only Formatting Mode")
         self.combo_image_option.currentTextChanged.connect(self.update_image_option)
 
         image_layout = QVBoxLayout()
@@ -565,7 +571,7 @@ class Rufus(QMainWindow):
         btn_icon1 = QToolButton()
         btn_icon1.setText("🌐")
         btn_icon1.setToolTip("Download updates")
-        btn_icon1.clicked.connect(lambda: webbrowser.open('http://www.github.com/hog185/rufus-py'))
+        btn_icon1.clicked.connect(lambda: webbrowser.open('http://www.github.com/hog185/lufus'))
         
         btn_icon2 = QToolButton()
         btn_icon2.setText("ℹ")
@@ -655,19 +661,19 @@ class Rufus(QMainWindow):
     def updateflash(self):
         # self.combo_device.clear()
         states.currentflash = self.combo_flash.currentIndex()
+        print(states.currentflash)
     
     def update_image_option(self):
-        states.image_option = self.combo_image_option.currentText()
+        states.image_option = self.combo_image_option.currentIndex()
         self._update_filesystem_options()
         self._update_flashing_options()
-        # print(f"Global state updated to: {states.image_option}")
     
     def _update_filesystem_options(self):
         self.combo_fs.blockSignals(True)
-        if states.image_option == "Standard Linux":
+        if states.image_option == 1:
             self.combo_fs.clear()
             self.combo_fs.addItem("UDF")
-        else:
+        elif states.image_option == 0:
             self.combo_fs.clear()
             self.combo_fs.addItems(self.all_fs_options)
             self.combo_fs.setCurrentText("NTFS")
@@ -679,17 +685,20 @@ class Rufus(QMainWindow):
         self.combo_flash.blockSignals(True)
         self.combo_flash.clear()
         
-        if states.image_option == "Standard Linux":
+        if states.image_option == 1:
             # Linux mode: only DD and Ventoy
             self.combo_flash.addItems(["DD", "Ventoy"])
             self.combo_flash.setCurrentText("DD")
-        else:
+        elif states.image_option == 0:
             # Windows/Other mode: Iso Mode, Woe USB, Ventoy
             self.combo_flash.addItems(["Iso Mode", "Woe USB", "Ventoy"])
             self.combo_flash.setCurrentText("Iso Mode")
-        
+        elif states.image_option == 2:
+            # Windows/Other mode: Iso Mode, Woe USB, Ventoy
+            self.combo_flash.addItems(["None"])
+            self.combo_flash.setCurrentText("None")
         self.combo_flash.blockSignals(False)
-        self.updateflash() 
+        # self.updateflash()
 
     def update_partition_scheme(self):
         states.partition_scheme = self.combo_partition.currentIndex()
@@ -735,10 +744,10 @@ class Rufus(QMainWindow):
     def show_about(self):
         if self.about_window is None:
             self.about_window = AboutWindow()
-            about_content = "Rufus-Py is a disk image writer written in Python for Linux.\n\n"
-            about_content += "Inspired by the original Rufus tool for Windows.\n\n"
+            about_content = "lufus is a disk image writer written in Python for Linux.\n\n"
+            about_content += "Inspired by the original lufus tool for Windows.\n\n"
             about_content += "Version: 1.0.0\n"
-            about_content += "GitHub: github.com/hog185/rufus-py"
+            about_content += "GitHub: github.com/hog185/lufus"
             self.about_window.about_text.setPlainText(about_content)
         self.about_window.show()
         self.about_window.raise_()
@@ -784,63 +793,88 @@ class Rufus(QMainWindow):
         self.statusBar.showMessage("Ready", 0)
     
     def start_process(self):
-        ### FLASHING
-        if not getattr(states, 'iso_path', '') or not Path(states.iso_path).exists():
-            QMessageBox.warning(self, "No Image", "Please select a valid installation file first.")
-            return
-        
-        # mount_path = self.get_selected_mount_path()
-        # if not mount_path:
-        #     QMessageBox.warning(self, "No Device", "Please select a USB device first.")
-        #     return
-        device = self.combo_device.currentData()
-        
-        
-        if not device:
-            QMessageBox.warning(self,"Error","No valid USB device selected.")
-            return
-        
-        states.DN=device
-        
-        self.btn_start.setEnabled(False)
-        self.btn_cancel.setEnabled(True)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setFormat("Preparing...")
-        self.statusBar.showMessage("Flashing...", 0)
-        
-        self.flash_worker = FlashWorker(states.iso_path, device)
-        self.flash_worker.progress.connect(lambda msg: self.statusBar.showMessage(msg, 0))
-        self.flash_worker.finished.connect(self.on_flash_finished)
-        self.flash_worker.start()
-        
-        self.log_message(f"Starting flash process: {states.iso_path} -> {device}")
+        states.DN = self.combo_device.currentData() or ""
+        if states.image_option == 0: # WINDOWS
+            if states.currentflash == 0: # iso mode
+                if not getattr(states, 'iso_path', '') or not Path(states.iso_path).exists():
+                    QMessageBox.warning(self, "No Image", "Please select a valid installation file first.")
+                    return
+                mount_path = self.get_selected_mount_path()
+                if not mount_path:
+                    QMessageBox.warning(self, "No Device", "Please select a USB device first.")
+                    return
 
-    ### FORMATTING
-    # def start_process(self):
-    #     self.btn_start.setEnabled(False)
-    #     self.btn_cancel.setEnabled(True)
-    #     self.progress_bar.setValue(10)
-    #     self.progress_bar.setFormat("Starting.. 10%")
-    #     # unmount
-    #     fo.unmount()
-    #     self.progress_bar.setValue(30)
-    #     self.progress_bar.setFormat("Unmounted Drive.. 20%")
-    #     # we must either flash iso or format the drive
-    #     # logic will be implemented later
-    #     # dd flashing goes here
+                self.btn_start.setEnabled(False)
+                self.btn_cancel.setEnabled(True)
+                self.progress_bar.setValue(0)
+                self.progress_bar.setFormat("Preparing...")
+                self.statusBar.showMessage("Flashing...", 0)
 
-    #     # format the drive
-    #     fo.dskformat()
-    #     self.progress_bar.setValue(60)
-    #     self.progress_bar.setFormat("Format Drive.. 60%")
-    #     # change label
-    #     fo.volumecustomlabel()
-    #     self.progress_bar.setValue(80)
-    #     self.progress_bar.setFormat("Changed Label.. 80%")
-    #     # re-mount
-    #     fo.remount()
-    #     self.progress_bar.setValue(100)
-    #     self.progress_bar.setFormat("Mount Done.. Completed! 100%")
+                self.flash_worker = FlashWorker(states.iso_path, mount_path)
+                self.flash_worker.progress.connect(lambda msg: self.statusBar.showMessage(msg, 0))
+                self.flash_worker.progress_value.connect(self.progress_bar.setValue)
+                self.flash_worker.progress_value.connect(lambda v: self.progress_bar.setFormat(f"{v}%"))
+                self.flash_worker.finished.connect(self.on_flash_finished)
+                self.flash_worker.start()
+
+                self.log_message(f"Starting Windows flash process: {states.iso_path} -> {mount_path}")
+
+        elif states.image_option == 1: # woe usb
+            pass
+
+        elif states.image_option == 1: # LINUX
+            if states.currentflash == 0: # DD METHOD
+                ### FLASHING
+                if not getattr(states, 'iso_path', '') or not Path(states.iso_path).exists():
+                    QMessageBox.warning(self, "No Image", "Please select a valid installation file first.")
+                    return
+                device_node = self.get_selected_mount_path()
+                if not device_node:
+                    QMessageBox.warning(self, "No Device", "Please select a USB device first.")
+                    return
+                
+                self.btn_start.setEnabled(False)
+                self.btn_cancel.setEnabled(True)
+                self.progress_bar.setValue(0)
+                self.progress_bar.setFormat("Preparing...")
+                self.statusBar.showMessage("Flashing...", 0)
+                
+                self.flash_worker = FlashWorker(states.iso_path, device_node)
+                self.flash_worker.progress.connect(lambda msg: self.statusBar.showMessage(msg, 0))
+                self.flash_worker.progress_value.connect(self.progress_bar.setValue)
+                self.flash_worker.progress_value.connect(lambda v: self.progress_bar.setFormat(f"{v}%"))
+                self.flash_worker.finished.connect(self.on_flash_finished)
+                self.flash_worker.start()
+                
+                self.log_message(f"Starting flash process: {states.iso_path} -> {device_node}")
+            else: # OTHER METHODS NOT YET DONE
+                pass 
+        elif states.image_option == 2: # ONLY FORMATTING
+        ### FORMATTING
+            self.btn_start.setEnabled(False)
+            self.btn_cancel.setEnabled(True)
+            self.progress_bar.setValue(10)
+            self.progress_bar.setFormat("Starting.. 10%")
+            # unmount
+            fo.unmount()
+            self.progress_bar.setValue(30)
+            self.progress_bar.setFormat("Unmounted Drive.. 20%")
+            # we must either flash iso or format the drive
+            # logic will be implemented later
+            # dd flashing goes here
+
+            # format the drive
+            fo.dskformat()
+            self.progress_bar.setValue(60)
+            self.progress_bar.setFormat("Format Drive.. 60%")
+            # change label
+            fo.volumecustomlabel()
+            self.progress_bar.setValue(80)
+            self.progress_bar.setFormat("Changed Label.. 80%")
+            # re-mount
+            fo.remount()
+            self.progress_bar.setValue(100)
+            self.progress_bar.setFormat("Mount Done.. Completed! 100%")
 
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts"""
@@ -880,6 +914,6 @@ if __name__ == "__main__":
     else:
         print("No USB devices data received")
     
-    window = Rufus(usb_devices)
+    window = lufus(usb_devices)
     window.show()
     sys.exit(app.exec())

@@ -9,7 +9,7 @@ python -m pytest -q
 If your virtual environment is not activated, run:
 
 ```sh
-/home/kero/Documents/Projects/Rufus-Py-Dev/.venv/bin/python -m pytest -q
+/home/kero/Documents/Projects/lufus-Dev/.venv/bin/python -m pytest -q
 ```
 
 To run a single test file:

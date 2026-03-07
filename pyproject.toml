@@ -1,5 +1,5 @@
 [project]
-name = "rufus-py"
+name = "lufus"
 version = "0.1.0"
 description = "Physical drive imaging and formatting utility written in Python"
 readme = "README.md"
@@ -11,7 +11,12 @@ dependencies = ["psutil>=7.2.2", "pyqt6>=6.10.2", "pyudev>=0.24.4"]
 dev = ["pytest>=8.0.0"]
 
 [project.gui-scripts]
-rufus_py = "rufus_py.__main__:main"
+lufus = "lufus.__main__:main"
 [build-system]
 requires = ["uv_build>=0.10.7,<0.11.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
