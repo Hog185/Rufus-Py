@@ -4,7 +4,7 @@ import os
 import shutil
 import time
 
-def install_clone(target_device):
+def install_ventoy(target_device):
     if "nvme" in target_device or "sda" in target_device:
         print(f"Caution: {target_device} might be a system drive.")
         confirm = input("Are you sure you want to wipe it? (type 'YES'): ")
@@ -101,4 +101,4 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: sudo python3 script.py /dev/sdX")
     else:
-        install_clone(sys.argv[1])
+        install_ventoy(sys.argv[1])
