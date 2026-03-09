@@ -1,106 +1,115 @@
-#due to some issues it's only working with linux don't add without proper changing
 import subprocess
 import sys
 import os 
 import shutil
+import time
 
-"""
-This will install grub with a config that lets you boot into the selected iso
-"""
+# This script prepares a USB to be a multi-ISO bootable drive.
+# The user can simply drag and drop .iso files into the main partition afterwards.
 
-def install_clone(target_device,selected_iso):
-    
-    # the iso must exist
-    if not os.path.exists(selected_iso):
-        print(f"Error: Source ISO '{selected_iso}' not found.")
-        sys.exit(1)
-    
-    # target device like /dev/sdX
-    #if its an nvme abort immediately
-    
-    if "nvme" in target_device:
-        print(f"Aborting: {target_device} is likely to a system drive.")
-        sys.exit(1)
-        
-        
-    # Partitionning system using 3 parts layout for maximum compatibility
-    # defining part Using GPT UUIDs for precision
-    # part1: BIOS Boot (Type: 21686148...)
-    # part2: EFI System (Type: C12A7328...)
-    # part3: Data (Type: EBD0A0A2...)
-    
-    sfdisk_input=f"""
-    label: gpt
-    device: {target_device}
-    unit: sectors
-    
+def install_clone(target_device):
+    # Safety check for NVMe/System drives
+    if "nvme" in target_device or "sda" in target_device:
+        print(f"Caution: {target_device} might be a system drive.")
+        confirm = input("Are you sure you want to wipe it? (type 'YES'): ")
+        if confirm != "YES":
+            sys.exit(1)
+
+    # Partitioning: 1. BIOS Boot (2MB), 2. EFI System (100MB), 3. Data (Remaining)
+    sfdisk_input = f"""
+label: gpt
+device: {target_device}
+unit: sectors
+
 {target_device}1 : start=2048, size=2048, type=21686148-6449-6E6F-7444-6961676F6E61
 {target_device}2 : start=4096, size=204800, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
 {target_device}3 : start=208896, type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7
     """
-    try:
-        print(f"Partitioning {target_device} ... ;)")
-        subprocess.run(['sfdisk',target_device],input=sfdisk_input.encode(),check=True)
-        
-        subprocess.run(["partprobe"], check=False)
-        subprocess.run(["udevadm", "settle"], check=False)
-        
-        print("Formatting partitions ")
-        subprocess.run(['mkfs.vfat', '-F', '32', '-n', 'EFI', f"{target_device}2"], check=True)
-        subprocess.run(['mkfs.exfat', '-L', 'OS_PART', f"{target_device}3"], check=True)
 
-        # 3. MOUNT EFI & INSTALL GRUB
-        efi_mount = "/tmp/efi"
+    try:
+        print(f"--- Partitioning {target_device} ---")
+        subprocess.run(['sfdisk', target_device], input=sfdisk_input.encode(), check=True)
+        
+        # Ensure kernel sees new partitions
+        subprocess.run(["partprobe", target_device], check=False)
+        subprocess.run(["udevadm", "settle", ], check=False)
+        subprocess.run(['sync'], check=True)
+        time.sleep(2)
+        
+        # Determine partition names (handles /dev/sdbX vs /dev/nvme0n1pX)
+        sep = 'p' if target_device[-1].isdigit() else ''
+        efi_part = f"{target_device}{sep}2"
+        data_part = f"{target_device}{sep}3"
+
+        print(f"--- Formatting {efi_part} and {data_part} ---")
+        subprocess.run(['mkfs.vfat', '-F', '32', '-n', 'EFI', efi_part], check=True)
+        subprocess.run(['mkfs.exfat', '-L', 'OS_PART', data_part], check=True)
+
+        # 3. INSTALL GRUB
+        efi_mount = "/tmp/efi_prepare"
         os.makedirs(efi_mount, exist_ok=True)
-        subprocess.run(['mount', '-t', 'vfat', f"{target_device}2", efi_mount], check=True)
+        subprocess.run(['mount', efi_part, efi_mount], check=True)
         
-        
-        print("Installing GRUB")
+        print("--- Installing GRUB (Legacy + UEFI) ---")
+        # Target Legacy BIOS
         subprocess.run(['grub-install', '--target=i386-pc', f'--boot-directory={efi_mount}/boot', target_device], check=True)
+        # Target UEFI
         subprocess.run(['grub-install', '--target=x86_64-efi', f'--efi-directory={efi_mount}', f'--boot-directory={efi_mount}/boot', '--removable'], check=True)
-        # grub config
+
+        # Multi-ISO Scanning Configuration
         config_content = """
 insmod part_gpt
 insmod exfat
 insmod loopback
 insmod iso9660
+insmod search_label
+insmod regexp
+
+set timeout=15
+set default=0
+
 search --no-floppy --label OS_PART --set=root
-set timeout=1
-menuentry "Start OS" {
-    set isofile="/os.iso"
-    loopback loop ($root)$isofile
-    linux (loop)/casper/vmlinuz boot=casper iso-scan/filename=$isofile quiet splash
-    initrd (loop)/casper/initrd
-}
+
+menuentry "--- AUTO-DETECTED ISO LIST ---" { true }
+
+for isofile in /*.iso; do
+    if [ -f "$isofile" ]; then
+        menuentry "Boot: $isofile" "$isofile" {
+            set iso_path="$2"
+            loopback loop ($root)$iso_path
+            
+            if [ -f (loop)/casper/vmlinuz ]; then
+                set p="/casper/" ; set k="vmlinuz" ; set i="initrd"
+            elif [ -f (loop)/live/vmlinuz ]; then
+                set p="/live/" ; set k="vmlinuz" ; set i="initrd.img"
+            elif [ -f (loop)/arch/boot/x86_64/vmlinuz-linux ]; then
+                set p="/arch/boot/x86_64/" ; set k="vmlinuz-linux" ; set i="initramfs-linux.img"
+            else
+                set p="/" ; set k="vmlinuz" ; set i="initrd.img"
+            fi
+            
+            linux (loop)$p$k boot=live iso-scan/filename=$iso_path findiso=$iso_path root=live:LABEL=OS_PART rd.live.image quiet splash
+            initrd (loop)$p$i
+        }
+    fi
+done
+
+menuentry "Reboot" { reboot }
+menuentry "Power Off" { halt }
 """
         with open(f"{efi_mount}/boot/grub/grub.cfg", "w") as cfg:
             cfg.write(config_content)
         
         subprocess.run(['umount', efi_mount], check=True)
-
-        # 4. MOUNT DATA & COPY ISO
-        data_mount = "/tmp/vtoy_data"
-        os.makedirs(data_mount, exist_ok=True)
-        subprocess.run(['mount', f"{target_device}3", data_mount], check=True)
-
-        print(f"--- Copying {selected_iso} to USB as os.iso ---")
-        print("This may take a few minutes...")
-        shutil.copy2(selected_iso, f"{data_mount}/os.iso")
-        
-        # sync ensures the data is actually written nand
-        subprocess.run(['sync'], check=True)
-        subprocess.run(['umount', data_mount], check=True)
-
-        print("\nSUCCESS: Your single-boot USB is ready.")        
-        
+        print("\nSUCCESS: USB is prepared.")
+        print("You can now manually copy your .iso files to the 'OS_PART' partition.")        
         
     except subprocess.CalledProcessError as e:
-        print(f"Command failled: {e}")
+        print(f"Command failed: {e}")
         sys.exit(1)
-        
-# this part is for testing the script        
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python3 script.py <target_device> <source_iso>")
+    if len(sys.argv) < 2:
+        print("Usage: sudo python3 script.py /dev/sdX")
     else:
-        install_clone(sys.argv[1], sys.argv[2])
+        install_clone(sys.argv[1])
