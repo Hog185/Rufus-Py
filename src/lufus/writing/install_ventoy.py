@@ -4,18 +4,13 @@ import os
 import shutil
 import time
 
-# This script prepares a USB to be a multi-ISO bootable drive.
-# The user can simply drag and drop .iso files into the main partition afterwards.
-
 def install_clone(target_device):
-    # Safety check for NVMe/System drives
     if "nvme" in target_device or "sda" in target_device:
         print(f"Caution: {target_device} might be a system drive.")
         confirm = input("Are you sure you want to wipe it? (type 'YES'): ")
         if confirm != "YES":
             sys.exit(1)
 
-    # Partitioning: 1. BIOS Boot (2MB), 2. EFI System (100MB), 3. Data (Remaining)
     sfdisk_input = f"""
 label: gpt
 device: {target_device}
@@ -30,13 +25,11 @@ unit: sectors
         print(f"--- Partitioning {target_device} ---")
         subprocess.run(['sfdisk', target_device], input=sfdisk_input.encode(), check=True)
         
-        # Ensure kernel sees new partitions
         subprocess.run(["partprobe", target_device], check=False)
         subprocess.run(["udevadm", "settle", ], check=False)
         subprocess.run(['sync'], check=True)
         time.sleep(2)
         
-        # Determine partition names (handles /dev/sdbX vs /dev/nvme0n1pX)
         sep = 'p' if target_device[-1].isdigit() else ''
         efi_part = f"{target_device}{sep}2"
         data_part = f"{target_device}{sep}3"
@@ -45,18 +38,14 @@ unit: sectors
         subprocess.run(['mkfs.vfat', '-F', '32', '-n', 'EFI', efi_part], check=True)
         subprocess.run(['mkfs.exfat', '-L', 'OS_PART', data_part], check=True)
 
-        # 3. INSTALL GRUB
         efi_mount = "/tmp/efi_prepare"
         os.makedirs(efi_mount, exist_ok=True)
         subprocess.run(['mount', efi_part, efi_mount], check=True)
         
         print("--- Installing GRUB (Legacy + UEFI) ---")
-        # Target Legacy BIOS
         subprocess.run(['grub-install', '--target=i386-pc', f'--boot-directory={efi_mount}/boot', target_device], check=True)
-        # Target UEFI
         subprocess.run(['grub-install', '--target=x86_64-efi', f'--efi-directory={efi_mount}', f'--boot-directory={efi_mount}/boot', '--removable'], check=True)
 
-        # Multi-ISO Scanning Configuration
         config_content = """
 insmod part_gpt
 insmod exfat
