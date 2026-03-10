@@ -26,13 +26,26 @@ unit: sectors
         subprocess.run(['sfdisk', target_device], input=sfdisk_input.encode(), check=True)
         
         subprocess.run(["partprobe", target_device], check=False)
-        subprocess.run(["udevadm", "settle", ], check=False)
+        subprocess.run(["udevadm", "settle"], check=False)
         subprocess.run(['sync'], check=True)
-        time.sleep(2)
         
         sep = 'p' if target_device[-1].isdigit() else ''
         efi_part = f"{target_device}{sep}2"
         data_part = f"{target_device}{sep}3"
+        
+        for part in [efi_part, data_part]:
+            for _ in range(20):
+                if os.path.exists(part):
+                    break
+                print(f"Waiting for {part}...")
+                time.sleep(1)
+            else:
+                print(f"Timed out waiting for {part} to appear.")
+                print(f"Timed out. Current /dev entries: {[x for x in os.listdir('/dev') if 'sda' in x]}")
+
+                sys.exit(1)
+        
+
 
         print(f"--- Formatting {efi_part} and {data_part} ---")
         subprocess.run(['mkfs.vfat', '-F', '32', '-n', 'EFI', efi_part], check=True)
