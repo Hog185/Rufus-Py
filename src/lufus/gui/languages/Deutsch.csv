@@ -92,3 +92,26 @@ about_content,"lufus ist ein in Python geschriebener USB-Image-Writer für Linux
 Inspiriert vom originalen lufus-Tool für Windows.
 Version: 1.0.0
 GitHub: github.com/hog185/lufus"
+accessibility_combo_device,Das Ziel-USB-Laufwerk zum Flashen auswählen
+accessibility_combo_boot,Pfad zur ISO- oder Abbild-Datei
+accessibility_btn_select,Dateidialog öffnen um ein Abbild auszuwählen
+accessibility_combo_image_option,Windows Linux Andere oder Nur Formatierung auswählen
+accessibility_combo_partition,GPT für moderne UEFI-Systeme MBR für ältere BIOS-Systeme
+accessibility_combo_target,UEFI für moderne Systeme BIOS für ältere Hardware
+accessibility_input_label,Benutzerdefinierter Name für das USB-Laufwerk nach der Formatierung
+accessibility_combo_fs,Dateisystemformat für das USB-Laufwerk auswählen
+accessibility_combo_cluster,Zuordnungseinheitengröße für das Dateisystem
+accessibility_combo_flash,Methode zum Schreiben des Abbilds auf das Laufwerk auswählen
+accessibility_chk_quick,Alle Sektoren überspringen und nur das Dateisystem zurücksetzen
+accessibility_chk_extended,Autorun- und Symboldateien auf das Laufwerk schreiben
+accessibility_chk_badblocks,Laufwerk vor dem Flashen auf unlesbare Sektoren prüfen
+accessibility_chk_verify,Abbild-Datei vor dem Flashen mit einem erwarteten Hash vergleichen
+accessibility_input_hash,Den 64-stelligen hexadezimalen SHA256-Hash zur Verifizierung einfügen
+accessibility_progress_bar,Zeigt den aktuellen Fortschritt des Flash- oder Formatierungsvorgangs
+accessibility_btn_start,Flash- oder Formatierungsvorgang für das gewählte USB-Gerät starten
+accessibility_btn_cancel,Den aktuellen Flash- oder Formatierungsvorgang abbrechen
+accessibility_btn_refresh,Erneut nach angeschlossenen USB-Laufwerken suchen
+accessibility_btn_website,Die lufus-Projektwebseite auf GitHub öffnen
+accessibility_btn_about,Informationen über lufus anzeigen
+accessibility_btn_settings,Den Einstellungsdialog öffnen
+accessibility_btn_log,Das Protokollfenster öffnen

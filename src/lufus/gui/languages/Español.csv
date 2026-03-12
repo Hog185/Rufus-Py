@@ -74,7 +74,6 @@ msgbox_usb_found_title,Nuevo dispositivo USB encontrado.
 msgbox_usb_found_body,Dispositivo USB encontrado. 
 msgbox_no_devices_title,Sin dispositivos. 
 msgbox_no_devices_body,"No se encontraron dispositivos USB.
-
 Reconéctalo e intenta de nuevo."
 msgbox_scan_error_title,Error de escaneo.
 msgbox_scan_error_body,Falló el escaneo de dispositivos USB:
@@ -82,10 +81,31 @@ no_usb_found,No se encontraron dispositivos USB
 dlg_select_image_title,Seleccione una imagen
 dlg_select_image_filter,Imagenes ISO (*.iso);;All Files (*)
 about_content,"Lufus es una utilidad de escritura de discos para Linux hecha en Python.
-
 Inspired by the original lufus tool for Windows.
 Inspirado por la herramienta original Rufus para Windows. 
 Version: 1.0.0
 GitHub: github.com/hog185/lufus"
-Traducción por/translation by: saber_03  :3 
-
+accessibility_combo_device,Seleccionar el dispositivo USB de destino para flashear
+accessibility_combo_boot,Ruta al archivo ISO o imagen de disco
+accessibility_btn_select,Abrir el explorador de archivos para elegir una imagen de disco
+accessibility_combo_image_option,Elegir Windows Linux Otra instalación o Solo formateo
+accessibility_combo_partition,GPT para sistemas UEFI modernos MBR para BIOS heredado
+accessibility_combo_target,UEFI para sistemas modernos BIOS para hardware antiguo
+accessibility_input_label,Nombre personalizado para el dispositivo USB tras el formateo
+accessibility_combo_fs,Elegir el formato de sistema de archivos para el dispositivo USB
+accessibility_combo_cluster,Tamaño de unidad de asignación para el sistema de archivos
+accessibility_combo_flash,Elegir el método para escribir la imagen en el dispositivo
+accessibility_chk_quick,Omitir el borrado de sectores y solo restablecer el sistema de archivos
+accessibility_chk_extended,Escribir archivos de autorun e íconos en el dispositivo
+accessibility_chk_badblocks,Escanear el dispositivo en busca de sectores ilegibles antes de flashear
+accessibility_chk_verify,Comparar el archivo de imagen con un hash esperado antes de flashear
+accessibility_input_hash,Pegar el hash SHA256 hexadecimal de 64 caracteres para verificar
+accessibility_progress_bar,Muestra el progreso actual del flasheo o formateo
+accessibility_btn_start,Iniciar el flasheo o formateo del dispositivo USB seleccionado
+accessibility_btn_cancel,Cancelar el flasheo o formateo en curso
+accessibility_btn_refresh,Volver a buscar dispositivos USB conectados
+accessibility_btn_website,Abrir el sitio web del proyecto lufus en GitHub
+accessibility_btn_about,Mostrar información sobre lufus
+accessibility_btn_settings,Abrir el diálogo de ajustes
+accessibility_btn_log,Abrir el visor de log
+Traducción por/translation by: saber_03  :3

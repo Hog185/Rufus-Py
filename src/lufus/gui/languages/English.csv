@@ -92,3 +92,26 @@ about_content,"lufus is a disk image writer written in Python for Linux.
 Inspired by the original lufus tool for Windows.
 Version: 1.0.0
 GitHub: github.com/hog185/lufus"
+accessibility_combo_device,Select the target USB drive to flash
+accessibility_combo_boot,Path to the ISO or disk image file
+accessibility_btn_select,Open a file dialog to choose a disk image
+accessibility_combo_image_option,Choose Windows Linux Other or Format Only
+accessibility_combo_partition,GPT for modern UEFI systems MBR for legacy BIOS
+accessibility_combo_target,UEFI for modern systems BIOS for older hardware
+accessibility_input_label,Custom name for the USB drive after formatting
+accessibility_combo_fs,Choose the filesystem format for the USB drive
+accessibility_combo_cluster,Allocation unit size for the filesystem
+accessibility_combo_flash,Choose how the image will be written to the drive
+accessibility_chk_quick,Skip wiping all sectors and only reset the filesystem
+accessibility_chk_extended,Write autorun and icon files to the drive
+accessibility_chk_badblocks,Scan the drive for unreadable sectors before flashing
+accessibility_chk_verify,Compare the image file against an expected hash before flashing
+accessibility_input_hash,Paste the 64-character hex SHA256 hash to verify against
+accessibility_progress_bar,Shows the current progress of the flash or format operation
+accessibility_btn_start,Begin flashing or formatting the selected USB device
+accessibility_btn_cancel,Abort the current flash or format operation
+accessibility_btn_refresh,Rescan for connected USB drives
+accessibility_btn_website,Open the lufus project website on GitHub
+accessibility_btn_about,Show information about lufus
+accessibility_btn_settings,Open the settings dialog
+accessibility_btn_log,Open the log viewer window
