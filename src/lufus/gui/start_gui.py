@@ -21,7 +21,9 @@ def ensure_root():
         for key, value in gui_env.items():
             if value:
                 env_args.append(f"{key}={value}")
-        cmd = ["pkexec"] + env_args + [sys.executable] + sys.argv
+        appimage = os.environ.get("APPIMAGE")
+        executable = appimage if appimage else sys.executable
+        cmd = ["pkexec"] + env_args + [executable] + (sys.argv[1:] if appimage else sys.argv)
         os.execvp("pkexec", cmd)
 usb_devices = find_usb()
 
