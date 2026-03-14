@@ -368,7 +368,64 @@ class VerifyWorker(QThread):
             self.finished.emit(result)
         except Exception as e:
             self.progress.emit(f"Verification error: {str(e)}")
-            self.finished.emit(False)
+            self.flash_done.emit(False)
+
+
+class FlashWorker(QThread):
+    progress = pyqtSignal(int)
+    status = pyqtSignal(str)
+    flash_done = pyqtSignal(bool)
+
+    def __init__(self, options: dict):
+        super().__init__()
+        self.options = options
+
+    def run(self):
+        _saved_stdout = sys.stdout
+        sys.stdout = sys.__stdout__
+        try:
+            from lufus.drives import states, formatting as fo
+            from lufus.writing.flash_usb import FlashUSB
+            from lufus.writing.flash_woeusb import flash_woeusb
+            import glob
+
+            options = self.options
+            for key, value in options.items():
+                setattr(states, key, value)
+
+            device_node = options["device"]
+            iso_path = options["iso_path"]
+            flash_mode = options["currentflash"]
+            image_option = options["image_option"]
+
+            self.status.emit(f"Unmounting all partitions on {device_node}...")
+            partitions = glob.glob(f"{device_node}*")
+            for part in partitions:
+                self.status.emit(f"Unmounting {part}...")
+                fo.unmount(part)
+
+            if image_option == 0:
+                if flash_mode == 0:
+                    success = FlashUSB(iso_path, device_node,
+                                       progress_cb=self.progress.emit,
+                                       status_cb=self.status.emit)
+                elif flash_mode == 1:
+                    success = flash_woeusb(device_node, iso_path,
+                                           progress_cb=self.progress.emit,
+                                           status_cb=self.status.emit)
+                else:
+                    success = False
+            else:
+                success = FlashUSB(iso_path, device_node,
+                                   progress_cb=self.progress.emit,
+                                   status_cb=self.status.emit)
+
+            self.flash_done.emit(bool(success))
+        except Exception as e:
+            self.status.emit(f"Flash error: {e}")
+            self.flash_done.emit(False)
+        finally:
+            sys.stdout = _saved_stdout
 
 
 class lufus(QMainWindow):
@@ -428,12 +485,7 @@ class lufus(QMainWindow):
         self.log_message(
             f"Startup USB devices passed in: {list((usb_devices or {}).keys()) or 'none'}"
         )
-        self.flash_process = QProcess(self)
-        self.helper_pid = None
-        self.flash_process.readyReadStandardOutput.connect(self.handle_flash_output)
-        self.flash_process.readyReadStandardError.connect(self.handle_flash_stderr)
-        self.flash_process.finished.connect(self.on_flash_finished)
-        self.flash_process.errorOccurred.connect(self.handle_process_error)
+        self.flash_worker = None
         self.log_message(f"UI scale factor: {self._S.f():.3f}  (base 96 DPI)")
 
     def _apply_styles(self):
@@ -980,7 +1032,6 @@ class lufus(QMainWindow):
         self.log_message(f"File system changed to: {self.combo_fs.currentText()} (index={states.currentFS})")
 
     def updateflash(self):
-        self.combo_device.clear()
         states.currentflash = self.combo_flash.currentIndex()
         self.log_message(f"Flash option changed to: {self.combo_flash.currentText()} (index={states.currentflash})")
 
@@ -1219,36 +1270,16 @@ class lufus(QMainWindow):
             except Exception as e:
                 self.log_message(f"Could not run lsof: {e}")
 
-            if self.flash_process.state() == QProcess.ProcessState.Running:
-                pid_to_kill = self.helper_pid if self.helper_pid else self.flash_process.processId()
-                self.log_message(f"Using PID {pid_to_kill} for killing")
-
-                try:
-                    pgid = os.getpgid(pid_to_kill)
-                    self.log_message(f"Helper PGID: {pgid}")
-                    os.killpg(pgid, signal.SIGTERM)
-                    self.log_message(f"Sent SIGTERM to process group {pgid}")
-                    if not self.flash_process.waitForFinished(3000):
-                        self.log_message("Process group did not terminate, sending SIGKILL", level="WARN")
-                        os.killpg(pgid, signal.SIGKILL)
-                        self.flash_process.waitForFinished(2000)
-                except ProcessLookupError:
-                    self.log_message("Process group already gone")
-                except Exception as e:
-                    self.log_message(f"Error killing process group: {e}", level="WARN")
-            
-            # sudo kill -9 as a final hammer >:3
-            if self.flash_process.state() == QProcess.ProcessState.Running:
-                pid_to_kill = self.helper_pid if self.helper_pid else self.flash_process.processId()
-                try:
-                    self.log_message(f"Attempting sudo kill -9 on PID {pid_to_kill}")
-                    subprocess.run(["sudo", "kill", "-9", str(pid_to_kill)], timeout=5, check=False)
-                    self.flash_process.waitForFinished(2000)
-                except Exception as e:
-                    self.log_message(f"sudo kill failed: {e}")
+            if self.flash_worker and self.flash_worker.isRunning():
+                self.log_message("Terminating flash worker", level="WARN")
+                self.flash_worker.terminate()
+                if not self.flash_worker.wait(3000):
+                    self.log_message("Flash worker did not stop, forcing quit", level="WARN")
+                    self.flash_worker.quit()
+                    self.flash_worker.wait(2000)
 
             try:
-                subprocess.run(["sudo", "fuser", "-k", device_node], timeout=5, check=False)
+                subprocess.run(["fuser", "-k", device_node], timeout=5, check=False)
                 self.log_message("fuser -k executed")
             except Exception as e:
                 self.log_message(f"fuser fallback failed: {e}")
@@ -1272,27 +1303,6 @@ class lufus(QMainWindow):
             self.btn_cancel.setEnabled(False)
             self.statusBar.showMessage(self._T.get("status_ready", "Ready"), 0)
             self.log_message("Flash process cancelled by user", level="WARN")    
-
-    def on_flash_finished(self, success: bool):
-        if success:
-            self.progress_bar.setValue(100)
-            self.progress_bar.setFormat(self._T.get("progress_complete", "Complete"))
-            self.log_message("Flash operation finished with result: SUCCESS")
-            QMessageBox.information(
-                self, self._T.get("msgbox_success_title", "Success"),
-                self._T.get("msgbox_success_body", "Flash completed successfully"),
-            )
-        else:
-            self.progress_bar.setFormat(self._T.get("progress_failed", "Failed"))
-            self.log_message("Flash operation finished with result: FAILED", level="ERROR")
-            QMessageBox.critical(
-                self, self._T.get("msgbox_error_title", "Error"),
-                self._T.get("msgbox_error_body", "Flash failed"),
-            )
-
-        self.btn_start.setEnabled(True)
-        self.btn_cancel.setEnabled(False)
-        self.statusBar.showMessage(self._T.get("status_ready", "Ready"), 0)
 
     def start_process(self):
         states.DN = self.combo_device.currentData() or ""
@@ -1348,34 +1358,6 @@ class lufus(QMainWindow):
             self.progress_bar.setFormat("")
 
     def perform_flash(self):
-        """Launch the root helper process using a temporary options file."""
-        # Check for Polkit agent
-        if not self.check_polkit_agent():
-            reply = QMessageBox.warning(
-                self,
-                self._T.get("polkit_agent_missing_title", "Polkit Agent Missing"),
-                self._T.get("polkit_agent_missing_body",
-                            "No Polkit authentication agent was found running.\n\n"
-                            "This means the system cannot prompt you for the root password.\n"
-                            "Please install a Polkit agent, for example:\n"
-                            "  - polkit-kde-agent (KDE) – works on most desktops\n"
-                            "  - hyprpolkitagent (Hyprland) – lightweight Wayland agent\n"
-                            "  - lxqt-policykit (LXQt) – another option\n"
-                            "Then start it in your window manager's autostart (e.g., add 'exec-once = /usr/lib/polkit-kde-authentication-agent-1' to Hyprland config).\n\n"
-                            "Alternatively, you can run the flash from a terminal using sudo (not recommended).\n\n"
-                            "Do you want to attempt flashing anyway? (It will likely fail without an agent.)"),
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if reply != QMessageBox.StandardButton.Yes:
-                self.log_message("Flashing cancelled by user: no Polkit agent")
-                # Reset UI state
-                self.btn_start.setEnabled(True)
-                self.btn_cancel.setEnabled(False)
-                self.progress_bar.setValue(0)
-                self.statusBar.showMessage(self._T.get("status_ready", "Ready"), 0)
-                return
-
-        # Gather all options needed by the helper
         options = {
             "iso_path": states.iso_path,
             "device": self.get_selected_mount_path(),
@@ -1393,65 +1375,27 @@ class lufus(QMainWindow):
             "expected_hash": states.expected_hash,
         }
 
-        # Write options to a temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            json.dump(options, f)
-            temp_filename = f.name
-        self.log_message(f"Options written to {temp_filename}")
+        self.log_message(f"Starting flash thread: image_option={options['image_option']}, flash_mode={options['currentflash']}, device={options['device']}")
 
-        # Path to the helper script
-        helper_path = Path(__file__).parent / "flash_helper.py"
-
-        # Set PYTHONPATH so the helper can find lufus modules
-        pythonpath = os.path.dirname(os.path.dirname(__file__))  # points to src/
-
-        # Build the pkexec command
-        cmd = [
-            "pkexec",
-            "env",
-            f"PYTHONPATH={pythonpath}",
-            sys.executable,
-            str(helper_path),
-            temp_filename   # pass only the file path
-        ]
-
-        self.log_message(f"Launching helper: {' '.join(cmd)}")
-        self.flash_process.start(cmd[0], cmd[1:])
-
-        # Schedule reading the helper's PID after a short delay
-        from PyQt6.QtCore import QTimer
-        QTimer.singleShot(500, self.read_helper_pid)
+        self.flash_worker = FlashWorker(options)
+        self.flash_worker.progress.connect(self.progress_bar.setValue, Qt.ConnectionType.QueuedConnection)
+        self.flash_worker.status.connect(self._on_flash_status, Qt.ConnectionType.QueuedConnection)
+        self.flash_worker.flash_done.connect(self.on_flash_finished, Qt.ConnectionType.QueuedConnection)
+        self.flash_worker.start()
 
         self.btn_start.setEnabled(False)
         self.btn_cancel.setEnabled(True)
         self.progress_bar.setValue(0)
-        self.statusBar.showMessage(self._T.get("status_flashing", "Flashing..."), 0)    
+        self.statusBar.showMessage(self._T.get("status_flashing", "Flashing..."), 0)
     
-    def handle_flash_output(self):
-        """Read and parse output from the helper process."""
-        data = self.flash_process.readAllStandardOutput().data().decode()
-        for line in data.splitlines():
-            if line.startswith("PROGRESS:"):
-                try:
-                    pct = int(line.split(":", 1)[1])
-                    self.progress_bar.setValue(pct)
-                except ValueError:
-                    pass
-            elif line.startswith("STATUS:"):
-                msg = line.split(":", 1)[1]
-                self.log_message(msg)
-                self.statusBar.showMessage(msg, 0)
-            else:
-                self.log_message(line)
+    def _on_flash_status(self, msg):
+        self.log_message(msg)
+        self.statusBar.showMessage(msg, 0)
 
-    def on_flash_finished(self, exit_code, exit_status):
-        """Called when the helper process finishes."""
-        # Read stderr
-        stderr = self.flash_process.readAllStandardError().data().decode()
-        if stderr:
-            self.log_message(f"Helper stderr:\n{stderr}", level="ERROR")
-
-        if exit_code == 0:
+    def on_flash_finished(self, success: bool):
+        if self.flash_worker is not None:
+            self.flash_worker.wait()
+        if success:
             self.progress_bar.setValue(100)
             self.progress_bar.setFormat(self._T.get("progress_complete", "Complete"))
             self.log_message("Flash operation finished with result: SUCCESS")
@@ -1516,28 +1460,7 @@ class lufus(QMainWindow):
             # If pgrep fails, assume agent might be present (better to try)
             return True
 
-    def handle_flash_stderr(self):
-        """Read and log stderr from the helper process."""
-        data = self.flash_process.readAllStandardError().data().decode()
-        for line in data.splitlines():
-            self.log_message(f"HELPER STDERR: {line}", level="ERROR")
 
-    def read_helper_pid(self):
-        """Read the helper's PID from the known temp file."""
-        pid_file = "/tmp/lufus_helper.pid"
-        try:
-            with open(pid_file, "r") as f:
-                pid = int(f.read().strip())
-            self.helper_pid = pid
-            self.log_message(f"Helper PID from file: {pid}")
-            return True
-        except Exception as e:
-            self.log_message(f"Could not read helper PID file: {e}")
-            return False
-    
-    def handle_process_error(self, error):
-        """Handle QProcess errors."""
-        self.log_message(f"QProcess error: {error}", level="ERROR")
 
 
 if __name__ == "__main__":
